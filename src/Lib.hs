@@ -8,11 +8,11 @@ import System.Process (callCommand)
 alphabetsNum :: Int
 alphabetsNum = 5
 height :: Int
-height = 20
+height = 30
 width :: Int
-width = 60
+width = 100
 gravity :: Float
-gravity = 0.4
+gravity = 0.001
 
 data HopingAlphabet = HopingAlphabet { character :: Char,
                                        position :: (Float, Float),
@@ -26,7 +26,7 @@ plotHopingAlphabets = do
 
 -- ホッピングするアルファベットの初期値を乱数で生成する
 generateHopingAlphabets :: Int -> [HopingAlphabet]
-generateHopingAlphabets num = [(HopingAlphabet 'a' ((fromIntegral height) / 2, (fromIntegral width) / 2) (0.0, 0.5))]
+generateHopingAlphabets num = [(HopingAlphabet 'a' ((fromIntegral height) / 2, (fromIntegral width) / 2) (0.0, 0.1))]
 
 -- フレーム
 world :: [HopingAlphabet] -> IO()
@@ -62,16 +62,14 @@ makePixel2 (h, w) alphabets = let result = find (\alphabet -> (round(fst(positio
 -- アルファベットの時間を進める
 updateAlphabets :: [HopingAlphabet] -> [HopingAlphabet]
 updateAlphabets alphabets = map updateAlphabet alphabets
-    where updateAlphabet (HopingAlphabet char pos vel) = let vel' = (fst(vel) + gravity, snd(vel))
-                                                             pos' = (fst(pos) + fst(vel'), fst(pos) + snd(vel'))
-                                                             vel'y = fst(vel')
-                                                             pos'y = fst(pos')
-                                                             (newVelY, newPosY) = if pos'y < 0 || pos'y >= (fromIntegral height)
-                                                                                    then (-vel'y, pos'y - vel'y)
-                                                                                    else (vel'y, pos'y)
-                                                             vel'x = snd(vel')
-                                                             pos'x = snd(pos')
-                                                             (newVelX, newPosX) = if pos'x < 0 || pos'x >= (fromIntegral width)
-                                                                                    then (-vel'x, pos'x - vel'x)
-                                                                                    else (vel'x, pos'x)
+    where updateAlphabet (HopingAlphabet char pos vel) = let vel' = ((fst vel) + gravity, (snd vel))
+                                                             pos' = ((fst pos) + (fst vel'), (snd pos) + (snd vel'))
+                                                             (newVelY, newPosY) = checkBound (fst pos') (fst vel') height
+                                                             (newVelX, newPosX) = checkBound (snd pos') (snd vel') width
                                                          in HopingAlphabet char (newPosY, newPosX) (newVelY, newVelX)
+
+-- アルファベットの壁への衝突をチェック
+checkBound :: Float -> Float -> Int -> (Float, Float)
+checkBound pos vel size = if pos < 0 || pos >= (fromIntegral size)
+                            then (-vel, pos - vel)
+                            else (vel, pos)
