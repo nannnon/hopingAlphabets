@@ -4,13 +4,14 @@ module Lib
 
 import Data.List (find)
 import System.Process (callCommand)
+import System.Random (StdGen, getStdGen, randomR)
 
 alphabetsNum :: Int
-alphabetsNum = 5
+alphabetsNum = 20
 height :: Int
 height = 30
 width :: Int
-width = 100
+width = 60
 gravity :: Float
 gravity = 0.001
 
@@ -21,19 +22,28 @@ data HopingAlphabet = HopingAlphabet { character :: Char,
 -- メイン
 plotHopingAlphabets :: IO ()
 plotHopingAlphabets = do
-    let alphabets = generateHopingAlphabets alphabetsNum
+    gen <- getStdGen
+    let alphabets = genHopingAlphabets alphabetsNum gen []
     world alphabets
 
 -- ホッピングするアルファベットの初期値を乱数で生成する
-generateHopingAlphabets :: Int -> [HopingAlphabet]
-generateHopingAlphabets num = [(HopingAlphabet 'a' ((fromIntegral height) / 2, (fromIntegral width) / 2) (0.0, 0.1))]
+genHopingAlphabets :: Int -> StdGen -> [HopingAlphabet] -> [HopingAlphabet]
+genHopingAlphabets 0 _ alphabets = alphabets
+genHopingAlphabets num gen alphabets = let (a, gen') = genHopingAlphabet gen
+                                       in genHopingAlphabets (num - 1) gen' (a:alphabets)
+
+genHopingAlphabet :: StdGen -> (HopingAlphabet, StdGen)
+genHopingAlphabet gen = let (char, gen'  ) = randomR ('A', 'Z')  gen
+                            (velY, gen'' ) = randomR (-0.15, 0.1) gen'
+                            (velX, gen''') = randomR (-0.1, 0.1) gen''
+                        in ((HopingAlphabet char ((fromIntegral height) / 2, (fromIntegral width) / 2) (velY, velX)), gen''')
 
 -- フレーム
 world :: [HopingAlphabet] -> IO()
 world alphabets = do
     let screen = makeScreen (height * width - 1) alphabets ""
-    callCommand "cls"
     putStrLn screen
+    callCommand "cls"
     world $ updateAlphabets alphabets
 
 -- 画面を作る
@@ -64,12 +74,14 @@ updateAlphabets :: [HopingAlphabet] -> [HopingAlphabet]
 updateAlphabets alphabets = map updateAlphabet alphabets
     where updateAlphabet (HopingAlphabet char pos vel) = let vel' = ((fst vel) + gravity, (snd vel))
                                                              pos' = ((fst pos) + (fst vel'), (snd pos) + (snd vel'))
-                                                             (newVelY, newPosY) = checkBound (fst pos') (fst vel') height
-                                                             (newVelX, newPosX) = checkBound (snd pos') (snd vel') width
+                                                             (newVelY, newPosY) = checkBound True  (fst pos') (fst vel') height
+                                                             (newVelX, newPosX) = checkBound False (snd pos') (snd vel') width
                                                          in HopingAlphabet char (newPosY, newPosX) (newVelY, newVelX)
 
 -- アルファベットの壁への衝突をチェック
-checkBound :: Float -> Float -> Int -> (Float, Float)
-checkBound pos vel size = if pos < 0 || pos >= (fromIntegral size)
-                            then (-vel, pos - vel)
-                            else (vel, pos)
+checkBound :: Bool -> Float -> Float -> Int -> (Float, Float)
+checkBound y pos vel boundPos = if pos < 0 || pos >= (fromIntegral boundPos)
+                                    then if y
+                                        then (-vel / 1.1, pos - vel)
+                                        else (-vel, pos - vel)
+                                    else (vel, pos)
